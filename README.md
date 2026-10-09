@@ -8,12 +8,29 @@ StockVault is a modern, high-performance single-page Inventory Management Applic
 
 ## 🌟 Key Features
 
+- **🧠 AI Inventory Summary**: Automated narrative inventory intelligence at the top of the dashboard. Provides contextual greetings, overall health evaluations, and instant breakdowns of items needing attention.
 - **📊 Operational Dashboard**: Real-time summary metrics (Total SKUs, Asset Valuation, Low Stock Alerts, Out of Stock, Category Counts) with visual chart overviews.
 - **📦 Product Directory**: Dual-view layout (Interactive Data Table & Visual Card Grid) with multi-field search, category filtering, location filtering, and column sorting.
 - **🔄 Stock Audit Trail**: Full log of every inventory addition, deduction, sale, return, or audit adjustment with reasons and timestamp tracking.
 - **🏷️ Barcode & Scan Hub**: Live Code128 barcode generator powered by `JsBarcode`, printable label layouts, and rapid SKU lookup simulation.
 - **📈 Financial Analytics**: Interactive Chart.js visual charts for stock vs min reorder levels, projected revenue vs cost, and automated restock cost estimations.
 - **💾 Data Portability**: Export full inventory to `.csv`, export/import `.json` database backups, and persistent storage via `localStorage`.
+
+---
+
+## 🧠 AI Inventory Summary Engine
+
+The AI Inventory Summary is an automated intelligence module located directly above the dashboard metrics:
+
+- **Local Deterministic Analysis**: For this MVP, the intelligence engine runs entirely locally in the browser using deterministic inventory algorithms based on active inventory data in `app.js`. No external AI APIs, external network dependencies, or backend servers are used, ensuring 100% data privacy, zero latency, and offline availability.
+- **Dynamic Diagnostics**: Evaluates key inventory states across all SKUs:
+  - **Out of Stock**: Detects depleted inventory (`quantity <= 0`) and flags urgent stockout replenishment.
+  - **Low Stock**: Identifies SKUs at or below minimum threshold (`quantity <= minStock`) with calculated shortage units.
+  - **Approaching Reorder Level**: Detects items within the safety threshold buffer (`quantity <= minStock * 1.5`) before a critical shortage occurs.
+  - **Excess Holding / Capital Lockup**: Detects overstocked items (`quantity >= minStock * 3`) with high capital tie-up.
+- **Contextual Narrative**: Dynamically generates time-of-day greetings ("Good morning", "Good afternoon", "Good evening") and conversational health summaries reflecting live inventory numbers.
+- **Interactive Insights Drawer**: Clicking **[View insights]** reveals individual product diagnostic cards with contextual explanations and a direct one-click **Adjust Stock** action.
+- **Auto-Syncing**: Recalculates instantly whenever products are added, modified, deleted, or adjusted via modals.
 
 ---
 

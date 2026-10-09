@@ -203,6 +203,7 @@
   };
 
   let actionToDeleteId = null;
+  let aiInsightsExpanded = false;
 
   // Chart instances
   let categoryChartInstance = null;
@@ -364,8 +365,203 @@
     else if (currentView === 'settingsView') renderSettingsView();
   }
 
+  // --- AI INVENTORY ANALYSIS ENGINE ---
+  function getAIInventoryAnalysis(prods) {
+    const hour = new Date().getHours();
+    let greeting = 'Good morning 👋';
+    if (hour >= 12 && hour < 17) {
+      greeting = 'Good afternoon 👋';
+    } else if (hour >= 17) {
+      greeting = 'Good evening 👋';
+    }
+
+    const total = prods.length;
+    if (total === 0) {
+      return {
+        greeting,
+        headline: 'Your inventory is currently empty.',
+        detail: 'No products are currently tracked in StockVault. Add your first SKU to activate inventory health analysis.',
+        healthStatusText: 'No Data Tracked',
+        healthStatusColor: 'var(--text-dim)',
+        insights: [],
+        totalAttention: 0
+      };
+    }
+
+    const outOfStockItems = [];
+    const lowStockItems = [];
+    const approachingReorderItems = [];
+    const excessStockItems = [];
+
+    prods.forEach(p => {
+      const qty = Number(p.quantity) || 0;
+      const min = Number(p.minStock) || 0;
+
+      if (qty <= 0) {
+        outOfStockItems.push({
+          product: p,
+          type: 'OUT_OF_STOCK',
+          badgeHtml: `<span class="status-badge badge-out-of-stock"><i class="fa-solid fa-circle-xmark"></i> Out of Stock</span>`,
+          explanation: `Completely depleted (0 units on hand vs minimum safety threshold: ${min} units). Immediate purchase order required.`
+        });
+      } else if (qty <= min) {
+        const shortage = min - qty;
+        lowStockItems.push({
+          product: p,
+          type: 'LOW_STOCK',
+          badgeHtml: `<span class="status-badge badge-low-stock"><i class="fa-solid fa-triangle-exclamation"></i> Low Stock</span>`,
+          explanation: `Stock is below safety reorder threshold (${qty} units remaining vs min ${min} units, deficit of ${shortage} units). Restock advised.`
+        });
+      } else if (qty <= Math.ceil(min * 1.5)) {
+        const buffer = qty - min;
+        approachingReorderItems.push({
+          product: p,
+          type: 'APPROACHING_REORDER',
+          badgeHtml: `<span class="status-badge" style="background:rgba(99,102,241,0.15); color:#a5b4fc; border:1px solid rgba(99,102,241,0.3);"><i class="fa-solid fa-arrow-trend-down"></i> Approaching Reorder</span>`,
+          explanation: `Stock is approaching reorder threshold (${qty} units remaining vs min ${min} units, buffer of only ${buffer} units). Monitor stock velocity.`
+        });
+      } else if (qty >= min * 3 && (qty * (Number(p.costPrice) || 0)) >= 300) {
+        excessStockItems.push({
+          product: p,
+          type: 'EXCESS_STOCK',
+          badgeHtml: `<span class="status-badge" style="background:rgba(6,182,212,0.15); color:var(--accent-info); border:1px solid rgba(6,182,212,0.3);"><i class="fa-solid fa-boxes-stacked"></i> Surplus Stock</span>`,
+          explanation: `High inventory volume (${qty} units vs min ${min} units) tying up ${formatCurrency(qty * p.costPrice)} in working capital.`
+        });
+      }
+    });
+
+    const outCount = outOfStockItems.length;
+    const lowCount = lowStockItems.length;
+    const appCount = approachingReorderItems.length;
+    const urgentCount = outCount + lowCount;
+    const totalAttention = outCount + lowCount + appCount;
+
+    // Actionable items prioritizing shortages and reorder alerts, followed by excess capital alerts
+    const insights = [
+      ...outOfStockItems,
+      ...lowStockItems,
+      ...approachingReorderItems,
+      ...excessStockItems
+    ];
+
+    let headline = '';
+    let detail = '';
+    let healthStatusText = 'Analysis Active';
+    let healthStatusColor = 'var(--accent-success)';
+
+    if (urgentCount === 0 && appCount === 0) {
+      headline = 'Your inventory is healthy overall.';
+      detail = `All ${total} products are above minimum safety thresholds with zero reorder alerts.`;
+      healthStatusText = 'Stock 100% Healthy';
+      healthStatusColor = 'var(--accent-success)';
+    } else if (urgentCount === 0 && appCount > 0) {
+      headline = 'Your inventory is healthy overall.';
+      detail = `${appCount} product${appCount > 1 ? 's are' : ' is'} approaching reorder levels, with no critical shortages.`;
+      healthStatusText = `${appCount} Approaching Reorder`;
+      healthStatusColor = 'var(--accent-info)';
+    } else if (urgentCount <= 2 && outCount === 0) {
+      headline = 'Your inventory is relatively healthy overall.';
+      if (appCount > 0) {
+        detail = `${totalAttention} items need attention, with ${appCount} product${appCount > 1 ? 's' : ''} approaching their reorder levels and ${lowCount} below minimum.`;
+      } else {
+        detail = `${totalAttention} item${totalAttention > 1 ? 's need' : ' needs'} attention, with ${lowCount} product${lowCount > 1 ? 's' : ''} below reorder levels.`;
+      }
+      healthStatusText = `${urgentCount} Items Need Attention`;
+      healthStatusColor = 'var(--accent-warning)';
+    } else {
+      headline = outCount > 0 ? 'Action required on key stock lines.' : 'Your inventory needs attention.';
+      if (appCount > 0) {
+        detail = `${totalAttention} items need attention, with ${appCount} product${appCount > 1 ? 's' : ''} approaching their reorder levels and ${urgentCount} requiring replenishment.`;
+      } else if (outCount > 0 && lowCount > 0) {
+        detail = `${totalAttention} items need attention, with ${outCount} product${outCount > 1 ? 's' : ''} out of stock and ${lowCount} below minimum reorder levels.`;
+      } else if (outCount > 0) {
+        detail = `${outCount} product${outCount > 1 ? 's are' : ' is'} out of stock and require immediate purchase.`;
+      } else {
+        detail = `${lowCount} product${lowCount > 1 ? 's are' : ' is'} below minimum reorder levels and need restocking.`;
+      }
+      healthStatusText = `${urgentCount} Critical Items`;
+      healthStatusColor = 'var(--accent-danger)';
+    }
+
+    return {
+      greeting,
+      headline,
+      detail,
+      healthStatusText,
+      healthStatusColor,
+      insights,
+      totalAttention
+    };
+  }
+
+  function renderAISummary() {
+    const analysis = getAIInventoryAnalysis(products);
+
+    const greetingEl = document.getElementById('aiGreeting');
+    const headlineEl = document.getElementById('aiHeadline');
+    const detailEl = document.getElementById('aiDetail');
+    const statusTextEl = document.getElementById('aiHealthStatusText');
+    const statusDotEl = document.querySelector('#aiHealthIndicator .status-dot');
+    const insightsCountEl = document.getElementById('aiInsightsCount');
+    const listEl = document.getElementById('aiInsightsList');
+    const panelEl = document.getElementById('aiInsightsPanel');
+    const toggleTextEl = document.getElementById('aiToggleInsightsText');
+    const toggleIconEl = document.getElementById('aiToggleInsightsIcon');
+    const toggleBtnEl = document.getElementById('aiToggleInsightsBtn');
+
+    if (greetingEl) greetingEl.innerText = analysis.greeting;
+    if (headlineEl) headlineEl.innerText = analysis.headline;
+    if (detailEl) detailEl.innerText = analysis.detail;
+    if (statusTextEl) statusTextEl.innerText = analysis.healthStatusText;
+    if (statusDotEl) statusDotEl.style.background = analysis.healthStatusColor;
+    if (insightsCountEl) insightsCountEl.innerText = analysis.insights.length;
+
+    if (panelEl) panelEl.style.display = aiInsightsExpanded ? 'block' : 'none';
+    if (toggleTextEl) toggleTextEl.innerText = aiInsightsExpanded ? 'Hide insights' : 'View insights';
+    if (toggleIconEl) toggleIconEl.className = aiInsightsExpanded ? 'fa-solid fa-chevron-up toggle-icon' : 'fa-solid fa-chevron-down toggle-icon';
+    if (toggleBtnEl) toggleBtnEl.setAttribute('aria-expanded', aiInsightsExpanded ? 'true' : 'false');
+
+    if (listEl) {
+      if (analysis.insights.length === 0) {
+        listEl.innerHTML = `
+          <div class="ai-insight-empty">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>All stock levels are optimal! No items currently require attention or reordering.</span>
+          </div>
+        `;
+      } else {
+        listEl.innerHTML = analysis.insights.map(item => `
+          <div class="ai-insight-item">
+            <div class="ai-insight-info">
+              <div class="ai-insight-head">
+                <span class="ai-insight-name">${item.product.name}</span>
+                <span class="ai-insight-sku">${item.product.sku}</span>
+                ${item.badgeHtml}
+              </div>
+              <div class="ai-insight-explanation">${item.explanation}</div>
+              <div class="ai-insight-stats">
+                <span>Stock: <strong>${item.product.quantity} units</strong></span>
+                <span>Safety Threshold: <strong>${item.product.minStock} units</strong></span>
+                <span>Unit Cost: <strong>${formatCurrency(item.product.costPrice)}</strong></span>
+                <span>Location: <strong>${item.product.location || 'Main Storage'}</strong></span>
+              </div>
+            </div>
+            <div class="ai-insight-actions">
+              <button class="btn btn-primary btn-sm adjust-stock-btn" data-id="${item.product.id}" title="Quick Stock Adjustment">
+                <i class="fa-solid fa-plus-minus"></i> Restock / Adjust
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+  }
+
   // --- 1. DASHBOARD VIEW ---
   function renderDashboard() {
+    // Render AI Inventory Summary
+    renderAISummary();
+
     // Calculate metrics
     const totalProducts = products.length;
     const totalValuation = products.reduce((acc, p) => acc + (p.quantity * p.costPrice), 0);
@@ -1265,6 +1461,20 @@
     });
 
     document.getElementById('dashViewAllMovementsBtn')?.addEventListener('click', () => switchView('movementsView'));
+
+    // AI Inventory Summary Toggle
+    document.getElementById('aiToggleInsightsBtn')?.addEventListener('click', () => {
+      aiInsightsExpanded = !aiInsightsExpanded;
+      const panel = document.getElementById('aiInsightsPanel');
+      const text = document.getElementById('aiToggleInsightsText');
+      const icon = document.getElementById('aiToggleInsightsIcon');
+      const btn = document.getElementById('aiToggleInsightsBtn');
+
+      if (panel) panel.style.display = aiInsightsExpanded ? 'block' : 'none';
+      if (text) text.innerText = aiInsightsExpanded ? 'Hide insights' : 'View insights';
+      if (icon) icon.className = aiInsightsExpanded ? 'fa-solid fa-chevron-up toggle-icon' : 'fa-solid fa-chevron-down toggle-icon';
+      if (btn) btn.setAttribute('aria-expanded', aiInsightsExpanded ? 'true' : 'false');
+    });
 
     // Inventory Filters & Switches
     document.getElementById('inventorySearchInput')?.addEventListener('input', (e) => {

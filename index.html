@@ -129,6 +129,50 @@
             </div>
           </div>
 
+          <!-- AI Inventory Summary -->
+          <div class="ai-summary-card" id="aiSummaryCard">
+            <div class="ai-summary-main">
+              <div class="ai-summary-top">
+                <div class="ai-summary-badge">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i>
+                  <span>AI Inventory Summary</span>
+                </div>
+                <div class="ai-summary-status" id="aiHealthIndicator">
+                  <span class="status-dot"></span>
+                  <span id="aiHealthStatusText">Deterministic Engine Active</span>
+                </div>
+              </div>
+
+              <div class="ai-summary-content">
+                <h3 class="ai-greeting" id="aiGreeting">Good morning 👋</h3>
+                <p class="ai-headline" id="aiHeadline">Your inventory is healthy overall.</p>
+                <p class="ai-detail" id="aiDetail">4 items need attention, with 2 products approaching their reorder levels.</p>
+              </div>
+
+              <div class="ai-summary-actions">
+                <button class="btn btn-secondary btn-sm ai-insights-toggle" id="aiToggleInsightsBtn" aria-expanded="false">
+                  <i class="fa-solid fa-lightbulb"></i>
+                  <span id="aiToggleInsightsText">View insights</span>
+                  <i class="fa-solid fa-chevron-down" id="aiToggleInsightsIcon"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Expandable Insights Panel -->
+            <div class="ai-insights-panel" id="aiInsightsPanel" style="display: none;">
+              <div class="ai-insights-header">
+                <div class="ai-insights-title">
+                  <i class="fa-solid fa-list-check"></i>
+                  <span>Actionable Item Insights (<span id="aiInsightsCount">0</span>)</span>
+                </div>
+                <span class="ai-insights-meta">Automated local analysis based on current stock levels &amp; thresholds</span>
+              </div>
+              <div class="ai-insights-list" id="aiInsightsList">
+                <!-- Dynamically populated from inventory data -->
+              </div>
+            </div>
+          </div>
+
           <!-- Alert Banner -->
           <div class="alert-banner" id="dashAlertBanner" style="display: none;">
             <div class="alert-info">
